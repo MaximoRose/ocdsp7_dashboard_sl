@@ -7,6 +7,7 @@ import json
 import requests
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 from outils_general_810 import list_files_in_folder
 from outils_feature_engineering_810 import get_cat_for_obs
@@ -16,6 +17,7 @@ SAMPLE_DATA_PATH = './st_content/sample_data.csv'
 PREPROCESSED_DATA_PATH = './st_content/processed_new_data.csv'
 ORIGINAL_DATA_PATH = './st_content/original_data.csv'
 CUSTOM_CSS = './st_content/style.css'
+HEROKU_APP_PREDICT_PROBA = "https://oc-ds-p7.herokuapp.com/predict_proba"
 HEROKU_APP_PREDICTION_URI = "https://oc-ds-p7.herokuapp.com/solvability_prediction"
 HEROKU_APP_SHAP_FORCE_URI = "https://oc-ds-p7.herokuapp.com/get_shap_force"
 HEROKU_APP_PREPROCESSING_URI = "https://oc-ds-p7.herokuapp.com/preprocess_data"
@@ -31,6 +33,12 @@ def local_css(file_name):
 # ------------------------------------------------------------------------------------
 # FONCTIONS D'APPELS D'API
 # ---------------------------------------------------------------------------------
+
+def get_predict_proba(lst_columns, associated_data):
+    dict_customer = {k: v for k, v in zip(lst_columns, associated_data)}
+    input_json = json.dumps(dict_customer)
+    response = requests.post(HEROKU_APP_PREDICT_PROBA, data=input_json)
+    return response.text
 
 
 def predict_with_heroku_app(lst_columns, associated_data):
@@ -156,6 +164,24 @@ def visualize_radar_chart(data):
     return
 
 
+def gauge_plot(value) :
+    couleur = 'green'
+    if value>50 :
+        couleur='red'
+    fig = go.Figure(go.Indicator(
+        mode = "gauge+number",
+        value = value,
+        gauge = {'axis': {'visible': False, 
+                          'range' : [0, 100]},
+                 'bar': {'color': couleur}},
+        domain = {'x': [0, 1], 'y': [0, 1]},
+        title = {'text': "Probabilite d'etre en defaut\n",
+                 'font': {'size': 24}}
+        )
+        )
+
+    return fig
+
 # ---------------------------------------------------------------------------------
 # FONCTIONS AFFICHAGE PAGE WEB
 # ---------------------------------------------------------------------------------
@@ -203,6 +229,17 @@ def main():
                 predict_btn = st.button('Etudier dossier')
                 if predict_btn:
                     if sk_id_combo is not None:
+
+                        # AFFICHAGE PREDICTION
+                        # Input data display au cas ou
+                        # st.write({k: v for k, v in zip(liste_colonnes, data_client.tolist()[0])})
+                        predict_proba = get_predict_proba(lst_columns=liste_colonnes,
+                                                             associated_data=data_client.tolist()[0])
+                        # CSI_ : C'est un peu sale, mais c'est pour finir dans les temps
+                        proba_1 = predict_proba.split(' ')[1].replace(']', '').replace('"', '')
+                        float_probs = float(proba_1)
+                        fig = gauge_plot(float_probs*100)
+                        st.write(fig)
 
 
                         # AFFICHAGE PREDICTION
