@@ -22,6 +22,7 @@ HEROKU_APP_PREDICTION_URI = "https://oc-ds-p7.herokuapp.com/solvability_predicti
 HEROKU_APP_SHAP_FORCE_URI = "https://oc-ds-p7.herokuapp.com/get_shap_force"
 HEROKU_APP_PREPROCESSING_URI = "https://oc-ds-p7.herokuapp.com/preprocess_data"
 TOP_FEATURES_FILES = "./st_content/top_features_profiles/"
+WARNING_MESSAGE = "<span class='warning_mess'>Attention : Rappelez-vous que meme lorsque notre modele est confiant, il peut faire des erreurs. Etudiez-les informations ci-apres pour vous faire votre avis.</span>"
 
 
 def local_css(file_name):
@@ -97,15 +98,28 @@ def get_rad_val(application, ref_folder=TOP_FEATURES_FILES):
     return dict_radar_values
 
 
+def create_html_list(texts_list):
+    liste_html = "<ul>"
+    for element in texts_list :
+        liste_html = liste_html+f"<li>{element}</li>"
+    liste_html = liste_html+"</ul>"
+    return liste_html
+
+
 # ---------------------------------------------------------------------------------
 # FONCTIONS D'AFFICHAGE DE GRAPHS
 # ---------------------------------------------------------------------------------
 
 
-def plot_top_x_bar(df_input, colname_name, colvalue_name, top=10):
+def get_top_feats(df_input, colvalue_name, top=10) :
     df_sorted = df_input
     df_sorted['abs_val'] = np.abs(df_sorted[colvalue_name])
     df_sorted = df_input.sort_values(by=['abs_val'], ascending=False).head(top)
+    return df_sorted
+
+
+def plot_top_x_bar(df_input, colname_name, colvalue_name, top=10):
+    df_sorted = get_top_feats(df_input= df_input, colvalue_name=colvalue_name, top=top)
     # Reinverting for display purposes
     df_sorted = df_sorted.sort_values(by=['abs_val'], ascending=True)
     fig = px.bar(df_sorted, x=colvalue_name, y=colname_name, orientation='h')
@@ -174,9 +188,9 @@ def gauge_plot(value) :
         gauge = {'axis': {'visible': False, 
                           'range' : [0, 100]},
                  'bar': {'color': couleur}},
-        domain = {'x': [0, 1], 'y': [0, 1]},
-        title = {'text': "Probabilite d'etre en defaut\n",
-                 'font': {'size': 24}}
+        domain = {'x': [0, 1], 'y': [0, 1]}
+        # title = {'text': "Probabilite d'etre en defaut\n",
+        #          'font': {'size': 24}}
         )
         )
 
@@ -238,30 +252,48 @@ def main():
                         # CSI_ : C'est un peu sale, mais c'est pour finir dans les temps
                         proba_1 = predict_proba.split(' ')[1].replace(']', '').replace('"', '')
                         float_probs = float(proba_1)
-                        fig = gauge_plot(float_probs*100)
-                        st.write(fig)
-
 
                         # AFFICHAGE PREDICTION
                         prediction = predict_with_heroku_app(lst_columns=liste_colonnes,
                                                              associated_data=data_client.tolist()[0])
 
+                        client = str(sk_id_combo)
                         if prediction == '0':
-                            text_result = "<span class='ok_customer'> OK </span>"
-                            st.markdown(text_result, unsafe_allow_html=True)
+                            text_result = "<span class='ok_customer'> rembourse </span>"
+                            contexte_proba = (1-float_probs)
+                            # st.markdown(text_result, unsafe_allow_html=True)
                         else:
-                            text_result = "<span class='nok_customer'> NOT OK </span>"
-                            st.markdown(text_result, unsafe_allow_html=True)
+                            text_result = "<span class='nok_customer'> ne rembourse pas </span>"
+                            contexte_proba = float_probs
+                            # st.markdown(text_result, unsafe_allow_html=True)
+
+                        sentence = f"<span class='text_result'>Selon le modele, il y a <b>{np.round(contexte_proba*100, 1)}%</b> de chance que le client {client} {text_result} son pret.</span><br/><br/>"
+                        st.markdown(sentence, unsafe_allow_html=True)
+                        st.markdown(WARNING_MESSAGE, unsafe_allow_html=True)
+
+
+                        # # Plot gauge
+                        # fig = gauge_plot(float_probs*100)
+                        # st.write(fig)
 
                         # AFFICHAGE SHAP FORCE
-                        st.write("TOP 15 Criteria")
+                        # st.write("TOP 15 Criteria")
                         shap_force = get_shap_force(lst_columns=liste_colonnes,
                                                     associated_data=data_client.tolist()[0])
 
                         df_shape_force = dict_to_pd(shap_force)
 
+                        small_df_sorted = get_top_feats(df_shape_force, colvalue_name='values')
+
                         fig = plot_top_x_bar(df_shape_force, colname_name='features', colvalue_name='values')
                         st.write(fig)
+
+                        points_forts = small_df_sorted[small_df_sorted['values'] <0].sort_values(by=['values'], ascending=True)['features'].values.tolist()
+                        points_faibles =  small_df_sorted[small_df_sorted['values'] >=0]['features'].values.tolist()
+                        str_point_forts = "<span class='text_result'>Les <b>points forts</b> de ce dossier sont : "+create_html_list(points_forts[:3])+"</span>"
+                        str_point_faibles = "<span class='text_result'>Les <b>points faibles</b> de ce dossier sont : "+create_html_list(points_faibles[:3])+"</span>"
+                        st.markdown(str_point_forts, unsafe_allow_html=True)
+                        st.markdown(str_point_faibles, unsafe_allow_html=True)
                     else:
                         st.markdown(
                             "ID client manquant.")
