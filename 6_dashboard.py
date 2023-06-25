@@ -122,16 +122,28 @@ def plot_top_x_bar(df_input, colname_name, colvalue_name, top=10):
     df_sorted = get_top_feats(df_input= df_input, colvalue_name=colvalue_name, top=top)
     # Reinverting for display purposes
     df_sorted = df_sorted.sort_values(by=['abs_val'], ascending=True)
-    fig = px.bar(df_sorted, x=colvalue_name, y=colname_name, orientation='h')
+    ## here I'm adding a column with colors
+    df_sorted.loc[df_sorted[colvalue_name]<=0, 'color'] = 'green'
+    df_sorted.loc[df_sorted[colvalue_name]>0, 'color'] = 'red'
+    fig = go.Figure()
+    fig.add_trace(
+    go.Bar(name='Net',
+           x=df_sorted[colvalue_name],
+           y=df_sorted[colname_name],
+           marker_color=df_sorted['color'],
+           orientation='h'))
+    fig.update_layout(barmode='stack')
+    # fig.show()
+    # fig = px.bar(df_sorted, x=colvalue_name, y=colname_name, orientation='h')
 
-    # Resize text
-    fig.update_layout(
-        font=dict(
-            family="Courier New, monospace",
-            size=18,  # Set the font size here
-            color="RebeccaPurple"
-        )
-    )
+    # # Resize text
+    # fig.update_layout(
+    #     font=dict(
+    #         family="Courier New, monospace",
+    #         size=18,  # Set the font size here
+    #         color=df_sorted['color'].values.tolist()
+    #     )
+    # )
     return fig
 
 
