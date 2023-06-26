@@ -262,7 +262,7 @@ def main():
                         predict_proba = get_predict_proba(lst_columns=liste_colonnes,
                                                              associated_data=data_client.tolist()[0])
                         # CSI_ : C'est un peu sale, mais c'est pour finir dans les temps
-                        proba_1 = predict_proba.split(' ')[1].replace(']', '').replace('"', '')
+                        proba_1 = predict_proba.split(' ')[-1].replace(']', '').replace('"', '')
                         float_probs = float(proba_1)
 
                         # AFFICHAGE PREDICTION
